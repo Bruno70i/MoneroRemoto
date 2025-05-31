@@ -1,0 +1,36 @@
+
+______________________________________________________________________
+
+só roda em rede local.
+
+este projeto tem a finalidade de criar um controle remoto via tcp, ele cria a porta 7722 no firewall permitindo o aceso remoto e cria um agendamento para iniciar sempre inciar com o windows usando o serviçoTask Scheduler.
+
+
+
+para compilar use o pyinstaller ele irá gerar um executavel chamado "SystemOutCache.exe", mova para a a pasta C:\Windows\SystemOut\SystemOutCache.exe", pois assim o serviço de agendamento funcionará corretamente, pq é ai que o serviço irá buscar o aplicativo para iniciar com o sistema.
+
+com o cliente voce abre o terminal e envia os comandos para o pc que desajar, 
+
+
+______________________________________________________________________
+
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1   
+
+pip install pyinstaller
+pip install psutil
+
+// compila e não mostra o terminal
+pyinstaller --onefile --noconsole SystemOutCache.py
+
+
+// compila e sempre aparece o terminal
+pyinstaller --onefile SystemOutCache.py
+
+
+//passo para compilar
+passo 1: pyinstaller --onedir --noconsole --uac-admin SystemOutCache.py -i SystemOutCache.ico --add-data "WinStart.bat;." --add-data "AbrirPortaFirewall.ps1;." 
+
+passo 2: pyinstaller --onefile --noconsole --uac-admin SystemOutCache.py -i SystemOutCache.ico --add-data "WinStart.bat;." --add-data "AbrirPortaFirewall.ps1;."
+
+pyinstaller --onefile --uac-admin client.py -i client.ico
