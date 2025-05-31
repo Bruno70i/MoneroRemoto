@@ -12,13 +12,17 @@ para compilar use o pyinstaller ele irá gerar um executavel chamado "SystemOutC
 com o cliente voce abre o terminal e envia os comandos para o pc que desajar, 
 
 
+-------------------- BIBLIOTECA QUE PRECISA INSTALAR: --------------
+pip install psutil
+pip install pyinstaller
+
 ______________________________________________________________________
 
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1   
 
-pip install pyinstaller
 pip install psutil
+pip install pyinstaller
 
 // compila e não mostra o terminal
 pyinstaller --onefile --noconsole SystemOutCache.py
