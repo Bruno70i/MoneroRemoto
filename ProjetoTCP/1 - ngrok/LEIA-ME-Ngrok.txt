@@ -1,0 +1,23 @@
+Isso vincula o ngrok à sua conta e libera recursos extras
+ngrok config add-authtoken 2ykWn6vqEiMfcwtY4vuqadIIRRG_6qG1KowizcKpkpwARsqF7
+
+
+
+Com seu servidor local rodando (npm start) (aqui é porta 3000, verificar a porta do seu projeto)
+.\ngrok http 3000
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
