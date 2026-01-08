@@ -1,0 +1,35 @@
+-------------------------------------- DICA 1 (HUGE PAGES) -------------------------------------
+
+no windoes para melhor desepempenho alterar o Huge Pages e adicionar "Todos".
+
+
+
+---------------------   DICA 2 (VERIFICAR O NUMERO DE NUCLEOS E THEADS) -----------------------
+
+
+Quando for iniciar em um novo pc apague as informações do "cpu" do arquivo .json pois o cada pc tem um numero de processador, então é interessante deixar o próprio minerador identificar.
+
+Valores padrão:
+"cpu": {
+        "enabled": true,
+        "huge-pages": true,
+        "huge-pages-jit": false,
+        "hw-aes": null,
+        "priority": null,
+        "memory-pool": false,
+        "yield": true,
+        "max-threads-hint": 100,
+        "asm": true,
+        "argon2-impl": null,
+        "cn/0": false,
+        "cn-lite/0": false
+},
+
+
+----------------------------- DICA 3 (NOME DO MINERADOR) ---------------------------------
+
+o minerador precisa alterar o nome tanto no user"" quanto no pass""
+
+
+
+DICA 4 -----------------------------------------------------------------------------------

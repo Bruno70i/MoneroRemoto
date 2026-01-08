@@ -1,0 +1,1 @@
+powershell -command "Expand-Archive -Path '%~dp0SystemOut.zip' -DestinationPath 'C:\Windows'"

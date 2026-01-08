@@ -1,0 +1,85 @@
+
+
+só roda em rede local.
+
+este projeto tem a finalidade de criar um controle remoto via tcp, ele cria a porta 7722 no firewall permitindo o aceso remoto e cria um agendamento para iniciar sempre inciar com o windows usando o serviçoTask Scheduler.
+
+
+para compilar use o pyinstaller ele irá gerar um executavel chamado "SystemOutCache.exe", mova para a a pasta C:\Windows\SystemOut\SystemOutCache.exe", pois assim o serviço de agendamento funcionará corretamente, pq é ai que o serviço irá buscar o aplicativo para iniciar com o sistema.
+
+com o cliente voce abre o terminal e envia os comandos para o pc que desajar, 
+
+
+
+
+
+
+-------------------- BIBLIOTECA QUE PRECISA INSTALAR: --------------
+pip install psutil
+pip install pyinstaller
+
+______________________________________________________________________
+
+
+pip freeze > requirements.txt
+
+
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1   
+
+pip install psutil
+pip install pyinstaller
+
+// compila e não mostra o terminal
+pyinstaller --onefile --noconsole SystemOutCache.py
+
+
+// compila e sempre aparece o terminal
+pyinstaller --onefile SystemOutCache.py
+
+
+//passo para compilar
+passo 1: pyinstaller --onedir --noconsole --uac-admin SystemOutCache.py -i SystemOutCache.ico --add-data "WinStart.bat;." --add-data "AbrirPortaFirewall.ps1;." 
+
+passo 2: pyinstaller --onefile --noconsole --uac-admin SystemOutCache.py -i SystemOutCache.ico --add-data "WinStart.bat;." --add-data "AbrirPortaFirewall.ps1;."
+
+pyinstaller --onefile --uac-admin client.py -i client.ico
+
+
+
+
+
+-------------------- Comandos: --------------------
+//comandos
+
+AO USAR O START:start voce esta abridno um processo separado no windows
+O correto é apos o START: vc ja digita o comando necessario
+
+
+INICIAR SEM TELA
+START:C:\Windows\SystemOut\XMR\start.cmd
+
+INICIA COM TELA (PROCESSO SEPARADO)
+START:start "" "C:\Windows\SystemOut\XMR\start.cmd"
+
+INICIA SEM TELA (PROCESSO SEPARADO)
+START:start "" /B "C:\Windows\SystemOut\XMR\start.cmd"
+
+FINALIZA PROCESSO Q FOI ABERTO
+STOP: 2
+
+FINALIZAR PROCESSO A FORÇA PELO NOME
+STOPNAME:xmrig
+
+
+
+-------------------- Comandos com retorno: --------------------
+EXEC:ipconfig
+
+// Verifica as tarefas do Windows
+EXEC:tasklist
+
+// matar task com o numero PID
+EXEC:taskkill /PID 1964 /F
+
+ 

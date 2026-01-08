@@ -1,0 +1,8 @@
+864jhQoCDXhMZ8cnS7MtmG5Zn4wo2Be6S9yYP5qdjJv4WXmarbHwapgY5E62F4ZKC76cwuKmUzfGrFf5DC5WqVCdVbavo69
+
+
+
+worker-id: "PrimeiroPedroTeste"
+url: pool.hashvault.pro:443
+pass: "PrimeiroPedroTeste", // nome do worker
+background: true
