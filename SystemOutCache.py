@@ -403,9 +403,6 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         win32serviceutil.HandleCommandLine(MoneroRemotoService)
     else:
-        # Se rodar sem argumentos (double click ou python SystemOutCache.py), 
-        # inicia em modo debug (console) para testes
+        # Se rodar sem argumentos, força o modo debug para evitar crash
         print("Rodando em modo DEBUG (Console)...")
-        # Simula a classe de serviço para teste local
-        svc = MoneroRemotoService(None)
-        svc.SvcDoRun()
+        win32serviceutil.HandleCommandLine(MoneroRemotoService, argv=[sys.argv[0], 'debug'])
