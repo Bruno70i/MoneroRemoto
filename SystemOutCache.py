@@ -190,6 +190,7 @@ class MoneroRemotoService(win32serviceutil.ServiceFramework):
         self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)
         self.is_running = False
         win32event.SetEvent(self.hWaitStop)
+        log_service("Recebido comando de PARADA.")
         
         # Fecha o socket forçadamente para desbloquear o accept()
         if self.server_socket:
@@ -201,9 +202,11 @@ class MoneroRemotoService(win32serviceutil.ServiceFramework):
         servicemanager.LogMsg(servicemanager.EVENTLOG_INFORMATION_TYPE,
                              servicemanager.PYS_SERVICE_STOPPED,
                              (self._svc_name_, ''))
+        log_service("Serviço parado com sucesso.")
 
     def SvcDoRun(self):
         """Loop principal do serviço"""
+        log_service("--- SERVIÇO INICIANDO ---")
         servicemanager.LogMsg(servicemanager.EVENTLOG_INFORMATION_TYPE,
                              servicemanager.PYS_SERVICE_STARTED,
                              (self._svc_name_, ''))
@@ -216,39 +219,49 @@ class MoneroRemotoService(win32serviceutil.ServiceFramework):
             base_path = os.path.dirname(os.path.abspath(__file__))
             
         os.chdir(base_path)
+        log_service(f"Diretório de trabalho definido para: {base_path}")
         servicemanager.LogInfoMsg(f"MoneroRemoto Service running in: {base_path}")
 
         # Tenta executar o WinStart.bat na inicialização (feature legado)
         try:
             bat_path = os.path.join(base_path, "WinStart.bat")
             if os.path.exists(bat_path):
+                log_service(f"Executando WinStart.bat: {bat_path}")
                 subprocess.run(["cmd", "/c", bat_path], shell=True, 
                                cwd=base_path, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 servicemanager.LogInfoMsg(f"Executed WinStart.bat successfully.")
+            else:
+                log_service("WinStart.bat não encontrado (opcional).")
         except Exception as e:
+            log_service(f"Falha ao executar WinStart.bat: {e}")
             servicemanager.LogErrorMsg(f"Failed to run WinStart.bat: {e}")
 
         # Loop principal (Keep-Alive)
+        log_service("Entrando no loop principal...")
         while self.is_running:
             try:
                 self.run_server()
             except Exception as e:
+                log_service(f"CRASH NO SERVIDOR: {e}. Reiniciando em 5s...")
                 servicemanager.LogErrorMsg(f"Server crashed: {e}. Restarting in 5s...")
                 # Recuo exponencial ou fixo se falhar
                 stop_signal = win32event.WaitForSingleObject(self.hWaitStop, 5000)
                 if stop_signal == win32event.WAIT_OBJECT_0:
                     break
+        log_service("Saindo do loop principal.")
 
     def run_server(self):
         """Lógica do servidor TCP"""
         HOST = '0.0.0.0'
         PORT = 7722
         
+        log_service(f"Iniciando socket em {HOST}:{PORT}")
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server_socket.bind((HOST, PORT))
         self.server_socket.listen(10)
         
+        log_service(f"Servidor ouvindo na porta {PORT} (Socket Created)")
         servicemanager.LogInfoMsg(f"TCP Server listening on {HOST}:{PORT}")
         
         while self.is_running:
@@ -260,6 +273,7 @@ class MoneroRemotoService(win32serviceutil.ServiceFramework):
                 # Ocorre quando o socket é fechado no SvcStop
                 break
             except Exception as e:
+                log_service(f"Erro no accept: {e}")
                 servicemanager.LogErrorMsg(f"Error accepting connection: {e}")
 
 
@@ -411,6 +425,24 @@ def log_install(msg):
     try:
         base_path = os.path.dirname(sys.executable if getattr(sys, 'frozen', False) else os.path.abspath(__file__))
         log_file = os.path.join(base_path, "install.log")
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(f"[{timestamp}] {msg}\n")
+    except:
+        pass
+
+def log_service(msg):
+    """Log para arquivo local para debug do SERVIÇO"""
+    try:
+        # Tenta pegar base path. Se frozen, é o dir do exe. Se não, é o __file__
+        # OBS: Quando rodando como serviço, o CWD pode ser system32 antes do chdir, 
+        # mas aqui tentamos pegar o path absoluto do binário.
+        if getattr(sys, 'frozen', False):
+            base_path = os.path.dirname(sys.executable)
+        else:
+            base_path = os.path.dirname(os.path.abspath(__file__))
+            
+        log_file = os.path.join(base_path, "service_debug.log")
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with open(log_file, "a", encoding="utf-8") as f:
             f.write(f"[{timestamp}] {msg}\n")

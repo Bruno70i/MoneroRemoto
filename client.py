@@ -123,9 +123,17 @@ def main():
     # Testa comando inicial
     print("Testando comunicação com o servidor...")
     test_response = send_command(host, PORT, "ADMIN")
+    
     if "[ERRO]" in test_response:
-        print(f"Falha na comunicação: {test_response}")
-        print("O servidor pode estar rodando mas não respondendo corretamente.")
+        print(f"\n🛑 ERRO CRÍTICO: {test_response}")
+        print("-" * 50)
+        print("DIAGNÓSTICO POSSÍVEL:")
+        print("1. O Serviço 'MoneroRemotoService' NÃO está rodando na máquina alvo.")
+        print("   -> Na VM, abra o Gerenciador de Tarefas e procure 'SystemOutCache.exe'.")
+        print("   -> Ou rode no Powershell da VM: Get-Service MoneroRemotoService")
+        print("2. O Firewall bloqueou a porta 7722.")
+        print("3. O IP mudou ou está inacessível.")
+        print("-" * 50)
         return
     else:
         print(f"✓ Comunicação bem-sucedida! {test_response.strip()}")
