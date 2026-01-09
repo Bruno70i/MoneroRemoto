@@ -585,14 +585,34 @@ def install_self():
         input("Pressione Enter para sair...")
 
 if __name__ == '__main__':
-    # Se chamado com argumentos padrão do Windows Service ou PyInstaller
+    # Lógica de Inicialização:
+    # 1. Se tem argumentos, segue o fluxo normal (win32serviceutil verifica os args)
+    # 2. Se NÃO tem argumentos:
+    #    a. Tenta conectar ao Service Control Manager (SCM).
+    #    b. Se conseguir, é porque foi iniciado pelo Windows como Serviço -> RODA O SERVIÇO.
+    #    c. Se falhar (erro 1063), é porque foi clicado pelo usuário -> RODA INSTALAÇÃO.
+
     if len(sys.argv) > 1:
         # Se for o nosso flag de elevação, rodamos a instalação real
         if sys.argv[1] == "--elevated":
              install_self()
-        # Se for comandos normais (start, stop, install, debug)
         else:
             win32serviceutil.HandleCommandLine(MoneroRemotoService)
     else:
-        # Sem argumentos (double click): Auto-Instalação
-        install_self()
+        # Sem argumentos: Pode ser Serviço ou Duplo Clique do Usuário
+        is_service = False
+        try:
+            # Tenta preparar como se fosse um serviço
+            # Isso só funciona se estiver sendo chamado pelo SCM
+            servicemanager.Initialize()
+            servicemanager.PrepareToHostSingle(MoneroRemotoService)
+            # Tenta iniciar o dispatcher. Se não for serviço, isso lança erro imediatamente.
+            servicemanager.StartServiceCtrlDispatcher()
+            is_service = True
+        except Exception as e:
+            # Se falhou, é porque não somos um serviço (provavelmente usuário clicou)
+            # Erro comum: win32service.error: (1063, 'StartServiceCtrlDispatcher', 'O processo do serviço não pôde se conectar ao controlador de serviço.')
+            is_service = False
+        
+        if not is_service:
+            install_self()
