@@ -428,8 +428,15 @@ def install_self():
         print("Solicitando privilégios de administrador para instalação...")
         try:
             # Re-executa o mesmo executável/script com "runas" (elevado)
+            if getattr(sys, 'frozen', False):
+                # Se for EXE, passamos apenas o flag
+                params = "--elevated"
+            else:
+                # Se for Script, precisamos passar o caminho do script também
+                params = f'"{exe_path}" --elevated'
+
             ret = ctypes.windll.shell32.ShellExecuteW(
-                None, "runas", sys.executable, f'"{exe_path}" --elevated', None, 1
+                None, "runas", sys.executable, params, None, 1
             )
             if ret > 32:
                 print("Processo elevado iniciado. Fechando este console.")
