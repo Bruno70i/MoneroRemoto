@@ -405,56 +405,86 @@ def is_admin():
     except:
         return False
 
+def log_install(msg):
+    """Log para arquivo local para debug de instalação"""
+    try:
+        base_path = os.path.dirname(sys.executable if getattr(sys, 'frozen', False) else os.path.abspath(__file__))
+        log_file = os.path.join(base_path, "install.log")
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(f"[{timestamp}] {msg}\n")
+    except:
+        pass
+
 def install_self():
     """Instalação automática (Firewall + Serviço + AutoStart)"""
     exe_path = sys.executable if getattr(sys, 'frozen', False) else os.path.abspath(__file__)
     
+    log_install("Iniciando instalação...")
+    
     # 1. Elevação de Privilégios
     if not is_admin():
+        log_install("Solicitando elevação de privilégios...")
         print("Solicitando privilégios de administrador para instalação...")
         try:
             # Re-executa o mesmo executável/script com "runas" (elevado)
-            # Passamos um argumento interno "--elevated" para saber que já estamos no processo elevado
             ret = ctypes.windll.shell32.ShellExecuteW(
                 None, "runas", sys.executable, f'"{exe_path}" --elevated', None, 1
             )
             if ret > 32:
                 print("Processo elevado iniciado. Fechando este console.")
+                log_install("Processo elevado disparado com sucesso.")
                 sys.exit(0)
             else:
-                print("Falha ao elevar privilégios. Execute como Administrador.")
+                msg = "Falha ao elevar privilégios. Execute como Administrador."
+                print(msg)
+                log_install(msg)
                 input("Pressione Enter para sair...")
                 sys.exit(1)
         except Exception as e:
+            log_install(f"Erro na elevação: {e}")
             print(f"Erro ao solicitar elevação: {e}")
             sys.exit(1)
 
     print("=== INSTALAÇÃO AUTOMÁTICA MONERO REMOTO ===")
+    log_install("Rodando com privilégios de Administrador.")
     
-    # 2. Configuração de Firewall (Netsh)
+    # 2. Configuração de Firewall (Via PowerShell - Mais confiável no Win11)
     print("[+] Configurando Firewall (Porta 7722)...")
+    log_install("Configurando Firewall via PowerShell...")
     try:
-        # TCP
-        subprocess.run(
-            'netsh advfirewall firewall add rule name="MoneroRemoto Agent TCP" dir=in action=allow protocol=TCP localport=7722', 
-            shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        )
-        # UDP
-        subprocess.run(
-            'netsh advfirewall firewall add rule name="MoneroRemoto Agent UDP" dir=in action=allow protocol=UDP localport=7722', 
-            shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        )
+        ps_cmd_tcp = "New-NetFirewallRule -DisplayName 'MoneroRemoto Agent TCP' -Direction Inbound -LocalPort 7722 -Protocol TCP -Action Allow -Force"
+        ps_cmd_udp = "New-NetFirewallRule -DisplayName 'MoneroRemoto Agent UDP' -Direction Inbound -LocalPort 7722 -Protocol UDP -Action Allow -Force"
+        
+        # Executa TCP
+        r1 = subprocess.run(["powershell", "-Command", ps_cmd_tcp], capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        if r1.returncode != 0:
+            log_install(f"Erro Firewall TCP: {r1.stderr}")
+        else:
+            log_install("Firewall TCP configurado.")
+
+        # Executa UDP
+        r2 = subprocess.run(["powershell", "-Command", ps_cmd_udp], capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        if r2.returncode != 0:
+            log_install(f"Erro Firewall UDP: {r2.stderr}")
+        else:
+            log_install("Firewall UDP configurado.")
+            
     except Exception as e:
-        print(f"[!] Erro no Firewall (não crítico): {e}")
+        err = f"[!] Erro no Firewall: {e}"
+        print(err)
+        log_install(err)
 
     # 3. Instalação do Serviço
     print("[+] Instalando Serviço Windows...")
+    log_install("Registrando serviço...")
     try:
-        # Usa o argv manipulado para chamar a função de instalação do framework
-        # O args[0] deve ser o caminho do script/exe
         win32serviceutil.HandleCommandLine(MoneroRemotoService, argv=[exe_path, 'install'])
+        log_install("Serviço registrado com sucesso.")
     except Exception as e:
-        print(f"[!] Erro ao instalar serviço: {e}")
+        err = f"[!] Erro ao instalar serviço: {e}"
+        print(err)
+        log_install(err)
 
     # 4. Configuração de Recuperação (SC.EXE)
     print("[+] Configurando Recuperação Automática...")
@@ -463,17 +493,22 @@ def install_self():
             f'sc failure "{SERVICE_NAME}" reset= 0 actions= restart/5000/restart/5000/restart/5000',
             shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
         )
+        log_install("Recuperação configurada.")
     except Exception as e:
-        print(f"[!] Erro na config de recuperação: {e}")
+        log_install(f"Erro na recuperação: {e}")
     
     # 5. Iniciar Serviço
     print("[+] Iniciando Serviço...")
+    log_install("Iniciando serviço...")
     try:
         win32serviceutil.HandleCommandLine(MoneroRemotoService, argv=[exe_path, 'start'])
         print("\n✅ SUCESSO! O serviço está rodando em background.")
+        log_install("Serviço iniciado com sucesso.")
         time.sleep(3)
     except Exception as e:
-        print(f"[!] Erro ao iniciar serviço (pode já estar rodando): {e}")
+        err = f"[!] Erro ao iniciar serviço: {e}"
+        print(err)
+        log_install(err)
         input("Pressione Enter para sair...")
 
 if __name__ == '__main__':
