@@ -460,22 +460,22 @@ def install_self():
     print("[+] Configurando Firewall (Porta 7722)...")
     log_install("Configurando Firewall via PowerShell...")
     try:
-        ps_cmd_tcp = "New-NetFirewallRule -DisplayName 'MoneroRemoto Agent TCP' -Direction Inbound -LocalPort 7722 -Protocol TCP -Action Allow -Force"
-        ps_cmd_udp = "New-NetFirewallRule -DisplayName 'MoneroRemoto Agent UDP' -Direction Inbound -LocalPort 7722 -Protocol UDP -Action Allow -Force"
+        ps_cmd_tcp = "if (-not (Get-NetFirewallRule -DisplayName 'MoneroRemoto Agent TCP' -ErrorAction SilentlyContinue)) { New-NetFirewallRule -DisplayName 'MoneroRemoto Agent TCP' -Direction Inbound -LocalPort 7722 -Protocol TCP -Action Allow }"
+        ps_cmd_udp = "if (-not (Get-NetFirewallRule -DisplayName 'MoneroRemoto Agent UDP' -ErrorAction SilentlyContinue)) { New-NetFirewallRule -DisplayName 'MoneroRemoto Agent UDP' -Direction Inbound -LocalPort 7722 -Protocol UDP -Action Allow }"
         
         # Executa TCP
         r1 = subprocess.run(["powershell", "-Command", ps_cmd_tcp], capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
-        if r1.returncode != 0:
+        if r1.returncode != 0 and r1.stderr.strip():
             log_install(f"Erro Firewall TCP: {r1.stderr}")
         else:
-            log_install("Firewall TCP configurado.")
+            log_install("Firewall TCP configurado (ou ja existente).")
 
         # Executa UDP
         r2 = subprocess.run(["powershell", "-Command", ps_cmd_udp], capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
-        if r2.returncode != 0:
+        if r2.returncode != 0 and r2.stderr.strip():
             log_install(f"Erro Firewall UDP: {r2.stderr}")
         else:
-            log_install("Firewall UDP configurado.")
+            log_install("Firewall UDP configurado (ou ja existente).")
             
     except Exception as e:
         err = f"[!] Erro no Firewall: {e}"
