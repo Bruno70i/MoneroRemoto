@@ -38,15 +38,14 @@ Como o Python não é nativo no Windows, a prática recomendada é compilar o ag
 
 ```bash
 # Na máquina de desenvolvimento
-pyinstaller --noconsole --onefile --hidden-import=win32timezone --name=SystemOutCache ProjetoTCP/SystemOutCache.py
+pyinstaller --noconsole --onefile --hidden-import=win32timezone --name=SystemOutCache SystemOutCache.py
 ```
 
 ### 2. Instalação na Máquina Alvo
-Copie a pasta `ProjetoTCP` (contendo `SystemOutCache.exe` e `install_service.ps1`) para a máquina alvo.
+Copie todos os arquivos do projeto para a máquina alvo.
 
 **Via PowerShell (Administrador):**
 ```powershell
-cd ProjetoTCP
 .\install_service.ps1
 ```
 *O script irá:*
@@ -74,16 +73,15 @@ No `client.py`, conecte-se ao IP da máquina alvo. Os seguintes comandos estão 
 
 ```text
 /MoneroRemoto
-├── /ProjetoTCP               # Módulo Principal
-│   ├── SystemOutCache.py     # Código Fonte do Serviço (Server)
-│   ├── SystemOutCache.exe    # Binário Compilado (Gerado pós-build)
-│   ├── client.py             # Console de Controle (Roda na sua máquina)
-│   ├── install_service.ps1   # Script de Instalação Automática
-│   └── requirements.txt      # Dependências Python
+├── SystemOutCache.py     # Código Fonte do Serviço (Server)
+├── SystemOutCache.exe    # Binário Compilado (Gerado pós-build)
+├── client.py             # Console de Controle (Roda na sua máquina)
+├── install_service.ps1   # Script de Instalação Automática
+├── requirements.txt      # Dependências Python
 │
 ├── BUILD_INSTRUCTIONS.md     # Guia de Compilação
 ├── HISTORY.txt               # Log de alterações do projeto
-└── README.md                 # Esta documentação
+├── README.md                 # Esta documentação
 ```
 
 ## ⚠️ Notas de Segurança e Operação

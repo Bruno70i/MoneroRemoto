@@ -16,7 +16,7 @@ Na sua máquina de desenvolvimento:
 
 ## Compilação
 
-Execute o seguinte comando na pasta `ProjetoTCP`:
+Execute o seguinte comando na pasta principal do projeto:
 
 ```bash
 pyinstaller --noconsole --onefile --hidden-import=win32timezone --name=SystemOutCache SystemOutCache.py
@@ -30,5 +30,5 @@ pyinstaller --noconsole --onefile --hidden-import=win32timezone --name=SystemOut
 ## Pós-Build
 
 1. O executável será gerado na pasta `dist/`.
-2. Mova o arquivo `SystemOutCache.exe` da pasta `dist/` para a pasta principal `ProjetoTCP/` (onde está o `install_service.ps1`).
-3. Agora você pode copiar a pasta `ProjetoTCP` inteira para a máquina alvo e rodar o `install_service.ps1`.
+2. Mova o arquivo `SystemOutCache.exe` da pasta `dist/` para a pasta principal (onde está o `install_service.ps1`).
+3. Agora você pode copiar a pasta inteira para a máquina alvo e rodar o `install_service.ps1`.
