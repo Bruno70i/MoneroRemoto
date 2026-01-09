@@ -30,5 +30,5 @@ pyinstaller --noconsole --onefile --hidden-import=win32timezone --name=SystemOut
 ## Pós-Build
 
 1. O executável será gerado na pasta `dist/`.
-2. Mova o arquivo `SystemOutCache.exe` da pasta `dist/` para a pasta principal (onde está o `install_service.ps1`).
-3. Agora você pode copiar a pasta inteira para a máquina alvo e rodar o `install_service.ps1`.
+2. O arquivo `SystemOutCache.exe` já é Auto-Instalável.
+3. Copie APENAS este arquivo para a máquina alvo e dê duplo clique para instalar.

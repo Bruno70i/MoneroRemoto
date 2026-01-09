@@ -42,18 +42,19 @@ pyinstaller --noconsole --onefile --hidden-import=win32timezone --name=SystemOut
 ```
 
 ### 2. Instalação na Máquina Alvo
-Copie todos os arquivos do projeto para a máquina alvo.
+Copie o arquivo `SystemOutCache.exe` (gerado na pasta `dist`) para a máquina alvo.
 
-**Via PowerShell (Administrador):**
-```powershell
-.\install_service.ps1
-```
-*O script irá:*
-1.  Verificar privilégios de Admin.
-2.  Desbloquear a porta **TCP 7722** no Firewall do Windows.
-3.  Registrar o serviço `MoneroRemotoService`.
-4.  Configurar recuperação automática (Reiniciar serviço se falhar).
-5.  Iniciar o serviço imediatamente.
+**Instalação Automática (One-Click):**
+Basta dar **duplo clique** no arquivo `SystemOutCache.exe`.
+
+*O executável irá:*
+1.  Solicitar privilégios de Administrador (se não tiver).
+2.  Configurar automaticamente o Firewall (Portas 7722 TCP/UDP).
+3.  Instalar-se como Serviço do Windows.
+4.  Configurar recuperação automática.
+5.  Iniciar imediatamente em background.
+
+> **Nota:** Se quiser rodar manualmente ou depurar, pode usar comandos via terminal como `SystemOutCache.exe debug` ou `SystemOutCache.exe remove`.
 
 ## 🕹 Manual de Uso (Comandos)
 
