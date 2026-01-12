@@ -67,13 +67,39 @@ O pacote de instalação (`INSTALADOR`) foi desenhado para ser implantado em seg
     *   **Move tudo para**: `C:\Windows\SystemOut\` (Local seguro e oculto).
     *   Executa o `SystemOutCache.exe` a partir deste novo local.
 
-3.  **O que o Agente (`SystemOutCache.exe`) faz automaticamente:**
-    *   Solicita privilégios de Administrador.
-    *   Configura Firewall (Libera Porta 7722).
-    *   Instala-se como **Serviço do Windows** (Início automático).
-    *   Inicia imediatamente em background.
+3.  **O que o Instalador (`Install.bat`) faz automaticamente:**
+    *   **Segurança:** Aplica exclusão no Windows Defender para a pasta `C:\Windows\SystemOut`.
+    *   **Agente Local (`SystemOutCache`):**
+        *   Instala e INICIA o serviço imediatamente (Prioridade Alta).
+        *   Configura Firewall (Libera Porta 7722).
+    *   **Rede VPN (`ZeroTier`):**
+        *   Instala o driver/serviço VPN silenciosamente.
+        *   Conecta automaticamente à rede `a09acf02334a8115`.
+        *   Configura a rede como *Privada* para permitir acesso remoto.
 
 > **Nota:** O `SystemNetConfig.exe` (Ferramenta de Rede) é instalado junto, mas permanece **inativo e silencioso**. Ele só será executado quando você comandar via Client (ex: `SHELL: SystemNetConfig`).
+
+### 📡 Conectividade (Rede VPN - ZeroTier)
+
+Este projeto utiliza o **ZeroTier** para criar uma LAN virtual segura sobre a Internet. A lógica de instalação segue um fluxo rigoroso, para permitir que o agente se conecte à rede do hospedeiro podendo usar comandos em redes diferente, tornando em uma rede unica:
+
+**PASSO 01 - Instalação Física (.msi)**
+Instala o driver e serviço a partir do arquivo local, garantindo que funcione mesmo offline (para instalar) ou sem downloads extras.
+`msiexec /i "ZeroTier One.msi" /quiet /qn`
+
+**PASSO 02 - Conexão à Rede (Join)**
+Assim que o serviço sobe, conectamos à rede mestre na porta padrão.
+`zerotier-cli join a09acf02334a8115`
+
+**PASSO 03 - Autorização (Dica Pro: Legacy Site)**
+Você deve gerenciar a rede pelo **Site Legado** (https://my.zerotier.com/network).
+*   **Motivo:** Ele permite marcar a rede como **PUBLIC** (Access Control).
+*   **Vantagem:** Isso **autoriza automaticamente** qualquer máquina que entrar. Você não precisa ir no site aprovar PC por PC.
+
+**PASSO 04 - Validação e Firewall ("Destrava")**
+Após confirmar o status "OK" (IP recebido), o script executa o desbloqueio final:
+`Set-NetConnectionProfile ... -NetworkCategory Private`
+Isso diz ao Windows que a rede ZeroTier é "Confiável", permitindo Pings, acesso a arquivos e controle remoto imediato.
 
 ## 🕹 Manual de Uso (Comandos)
 

