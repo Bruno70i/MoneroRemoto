@@ -1,0 +1,60 @@
+conta ZeroTier
+
+email: fiher57530@atinjo.com
+senha: bolsonaro@2024
+
+novo id: a09acf02334a8115
+
+
+_____________________________________________________________________________________________________________________________
+PASSO 01 - Instala a partir de um .msi físico no próprio computador.
+msiexec /i "ZeroTier One.msi" /quiet /qn
+
+
+
+_____________________________________________________________________________________________________________________________
+passo 02 - o serviço do ZeroTier já deve estar rodando. Agora vamos conectar as máquinas à sua rede.
+O ID: 633e31d8a2d1346f tem no site no zerotier - https://central.zerotier.com estou usando o site legado que é bem melhor https://my.zerotier.com
+
+zerotier-cli join a09acf02334a8115
+ou 
+& "C:\Program Files (x86)\ZeroTier\One\zerotier-cli.bat" join a09acf02334a8115
+
+
+
+LOG:
+PS C:\WINDOWS\system32> & "C:\Program Files (x86)\ZeroTier\One\zerotier-cli.bat" join a09acf02334a8115
+200 join OK
+
+
+_____________________________________________________________________________________________________________________________
+PASSO 03 - AGORA TEM QUE IR NO SITE E AUTORIZAR
+
+
+_____________________________________________________________________________________________________________________________
+
+passo 04 - comando para confirmar se ele já recebeu o IP (pode demorar uns 30 segundos após você marcar a caixa no site):
+& "C:\Program Files (x86)\ZeroTier\One\zerotier-cli.bat" listnetworks
+
+
+
+LOG ERRADO:
+PS C:\WINDOWS\system32> & "C:\Program Files (x86)\ZeroTier\One\zerotier-cli.bat" listnetworks
+200 listnetworks <nwid> <name> <mac> <status> <type> <dev> <ZT assigned ips>
+200 listnetworks a09acf02334a8115  6e:44:7a:4b:68:a7 ACCESS_DENIED PRIVATE ethernet_32781 -
+
+LOG CORRETO:
+PS C:\WINDOWS\system32> & "C:\Program Files (x86)\ZeroTier\One\zerotier-cli.bat" listnetworks
+200 listnetworks <nwid> <name> <mac> <status> <type> <dev> <ZT assigned ips>
+200 listnetworks a09acf02334a8115 my-first-network 6e:44:7a:4b:68:a7 OK PRIVATE ethernet_32781 10.64.179.56/24
+_____________________________________________________________________________________________________________________________
+
+PASSO 04 - "Destrava Firewall" O Windows bloqueia conexões de redes novas. Para permitir que os PCs conversem (ping, arquivos, acesso remoto), rode este comando no PowerShell:
+
+Get-NetConnectionProfile | Where-Object { $_.InterfaceAlias -like "*ZeroTier*" } | Set-NetConnectionProfile -NetworkCategory Private
+
+
+
+LOG:
+NAO APARECE NADA
+_____________________________________________________________________________________________________________________________
