@@ -22,7 +22,7 @@ echo.
 echo [2/5] Extraindo Pacote SystemOut...
 if exist "SystemOut.zip" (
     powershell -command "Expand-Archive -Path 'SystemOut.zip' -DestinationPath 'C:\Windows' -Force"
-    timeout /t 3 /nobreak >nul
+    timeout /t 4 /nobreak >nul
 ) else (
     echo      [ERRO] SystemOut.zip nao encontrado no diretorio atual.
     pause
@@ -51,7 +51,7 @@ sc start SystemOutCache >nul 2>&1
 echo      ✅ Agente SystemOut ativo e rodando em background.
 
 echo.
-echo      [INFO] Aguardando o Agente estabilizar (7 segundos)...
+echo      [INFO] Aguardando o Agente estabilizar (6 segundos)...
 timeout /t 6 /nobreak >nul
 
 :: [4] PHASE 2: NETWORK DEPLOY (ZEROTIER)
