@@ -15,7 +15,7 @@ O agente que reside na máquina alvo. Agora refatorado para usar a **Win32 API**
 - **Stealth Mode**: Sem janelas, sem ícones na bandeja. O processo é visível apenas no Gerenciador de Tarefas.
 - **Dynamic CWD**: Detecta automaticamente seu diretório de execução, permitindo instalação em qualquer pasta (vencendo a limitação do `System32` padrão dos serviços).
 
-### 🎮 Controller Client (`client.py`)
+### 🎮 Controller Client (`SystemClient.py`)
 Console de comando para o administrador. Permite:
 - Envio de comandos em tempo real.
 - Monitoramento de processos (CPU, PID).
@@ -45,12 +45,21 @@ Para gerar os executáveis com ícones e permissões corretas, execute:
 
 **Server Agent (SystemOutCache.exe):**
 ```bash
-pyinstaller --onefile --uac-admin --clean --noconfirm --icon="SystemOutCache.ico" --name SystemOutCache --hidden-import=win32timezone --hidden-import=psutil SystemOutCache.py
+pyinstaller --onefile --uac-admin --clean --noconfirm --icon="System_Icone.ico" --name SystemOutCache --hidden-import=win32timezone --hidden-import=psutil SystemOutCache.py
 ```
 
 **Config Tool (SystemNetConfig.exe):**
 ```bash
-pyinstaller --onefile --uac-admin --clean --noconfirm --icon="SystemOutCache.ico" --name SystemNetConfig --hidden-import=win32com --hidden-import=win32com.client --hidden-import=pythoncom --hidden-import=pywintypes SystemNetConfig.py
+pyinstaller --onefile --uac-admin --clean --noconfirm --icon="System_Icone.ico" --name SystemNetConfig --hidden-import=win32com --hidden-import=win32com.client --hidden-import=pythoncom --hidden-import=pywintypes SystemNetConfig.py
+```
+
+**Controller Client (SystemClient.exe):**
+```bash
+pyinstaller --onefile --clean --noconfirm --icon="SystemClient.ico" --name SystemClient SystemClient.py
+```
+**Thread Manager (SystemGerenciador_Threads.exe):**
+```bash
+pyinstaller --onefile --uac-admin --clean --noconfirm --icon="System_Icone.ico" --name SystemGerenciador_Threads SystemGerenciador_Threads.py
 ```
 
 ### 2. Instalação na Máquina Alvo (Easy Deploy)
@@ -103,7 +112,7 @@ Isso diz ao Windows que a rede ZeroTier é "Confiável", permitindo Pings, acess
 
 ## 🕹 Manual de Uso (Comandos)
 
-No `client.py`, conecte-se ao IP da máquina alvo.
+No `SystemClient.py`, conecte-se ao IP da máquina alvo.
 
 | Comando | Descrição |
 | :--- | :--- |
@@ -121,7 +130,7 @@ No `client.py`, conecte-se ao IP da máquina alvo.
 /MoneroRemoto
 ├── SystemOutCache.py     # Código Fonte do Serviço (Server)
 ├── SystemOutCache.exe    # Binário Compilado (Gerado pós-build)
-├── client.py             # Console de Controle (Roda na sua máquina)
+├── SystemClient.py             # Console de Controle (Roda na sua máquina)
 ├── install_service.ps1   # Script de Instalação Automática
 ├── requirements.txt      # Dependências Python
 │
